@@ -7,7 +7,10 @@ import (
 	"os"
 
 	"github.com/sivchari/kumo/internal/service"
+	"github.com/sivchari/kumo/internal/service/cloudformation/resource"
 )
+
+const serviceName = "cloudformation"
 
 // Compile-time check that Service implements io.Closer.
 var _ io.Closer = (*Service)(nil)
@@ -18,24 +21,40 @@ func init() {
 		opts = append(opts, WithDataDir(dir))
 	}
 
-	service.Register(New(NewMemoryStorage(opts...)))
+	storage, err := NewMemoryStorageWithError(opts...)
+	if err != nil {
+		panic(fmt.Errorf("initialize cloudformation storage: %w", err))
+	}
+
+	service.Register(New(storage))
 }
 
 // Service implements the CloudFormation service.
 type Service struct {
-	storage Storage
+	storage  Storage
+	registry *resource.Registry
 }
 
 // New creates a new CloudFormation service.
 func New(storage Storage) *Service {
+	return NewWithRegistry(storage, nil)
+}
+
+// NewWithRegistry creates a CloudFormation service with an optional resource registry.
+func NewWithRegistry(storage Storage, registry *resource.Registry) *Service {
 	return &Service{
-		storage: storage,
+		storage:  storage,
+		registry: registry,
 	}
+}
+
+func (s *Service) executor() *Executor {
+	return NewExecutor(s.storage, s.registry)
 }
 
 // Name returns the service name.
 func (s *Service) Name() string {
-	return "cloudformation"
+	return serviceName
 }
 
 // TargetPrefix returns the X-Amz-Target prefix for the service.
@@ -47,19 +66,26 @@ func (s *Service) TargetPrefix() string {
 func (s *Service) Actions() []string {
 	return []string{
 		"CreateStack",
+		"CreateChangeSet",
 		"DeleteStack",
+		"DescribeChangeSet",
+		"DescribeStackEvents",
+		"DescribeStackResource",
+		"DescribeStackResources",
 		"DescribeStacks",
+		"ExecuteChangeSet",
+		"ListExports",
 		"ListStacks",
 		"UpdateStack",
-		"DescribeStackResources",
 		"GetTemplate",
+		"GetTemplateSummary",
 		"ValidateTemplate",
 	}
 }
 
 // ServiceIdentifier returns the SDK service identifier for User-Agent disambiguation.
 func (s *Service) ServiceIdentifier() string {
-	return "cloudformation"
+	return serviceName
 }
 
 // QueryProtocol marks this service as using the Query protocol.
