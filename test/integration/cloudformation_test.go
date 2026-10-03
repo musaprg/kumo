@@ -71,6 +71,9 @@ func TestCloudFormation_CreateAndDeleteStack(t *testing.T) {
 
 	g := golden.New(t, golden.WithIgnoreFields("StackId"))
 	g.Assert(t.Name()+"_create", createOutput)
+	if aws.ToString(createOutput.StackId) == "" {
+		t.Fatal("CreateStack returned an empty StackId")
+	}
 
 	t.Cleanup(func() {
 		_, _ = client.DeleteStack(context.Background(), &cloudformation.DeleteStackInput{
@@ -84,6 +87,12 @@ func TestCloudFormation_CreateAndDeleteStack(t *testing.T) {
 	})
 	if err != nil {
 		t.Fatal(err)
+	}
+	if len(descOutput.Stacks) != 1 {
+		t.Fatalf("DescribeStacks returned %d stacks, want 1", len(descOutput.Stacks))
+	}
+	if aws.ToString(descOutput.Stacks[0].StackId) != aws.ToString(createOutput.StackId) {
+		t.Fatalf("DescribeStacks returned stack ID %q, want %q", aws.ToString(descOutput.Stacks[0].StackId), aws.ToString(createOutput.StackId))
 	}
 
 	g2 := golden.New(t, golden.WithIgnoreFields("StackId", "CreationTime", "LastUpdatedTime"))

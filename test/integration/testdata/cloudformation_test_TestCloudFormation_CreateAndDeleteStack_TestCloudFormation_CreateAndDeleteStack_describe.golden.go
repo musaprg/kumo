@@ -2,7 +2,7 @@
   "NextToken": null,
   "Stacks": [
     {
-      "CreationTime": "2026-03-23T07:45:25.01Z",
+      "CreationTime": "2026-10-03T12:59:42.968Z",
       "StackName": "test-stack-create-delete",
       "StackStatus": "CREATE_COMPLETE",
       "Capabilities": null,
@@ -15,18 +15,18 @@
       "DriftInformation": null,
       "EnableTerminationProtection": null,
       "LastOperations": null,
-      "LastUpdatedTime": "2026-03-23T07:45:25.01Z",
-      "NotificationARNs": null,
-      "Outputs": null,
+      "LastUpdatedTime": "2026-10-03T12:59:42.968Z",
+      "NotificationARNs": [],
+      "Outputs": [],
       "Parameters": [],
       "ParentId": null,
       "RetainExceptOnCreate": null,
       "RoleARN": null,
       "RollbackConfiguration": null,
       "RootId": null,
-      "StackId": "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack-create-delete/ee9e5fdf-14d6-4fb2-bc49-8a71e8dd6969",
+      "StackId": "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack-create-delete/9d6e6944-a306-4e4d-b8be-8bee5bbffc5b",
       "StackStatusReason": null,
-      "Tags": null,
+      "Tags": [],
       "TimeoutInMinutes": null
     }
   ],

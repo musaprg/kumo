@@ -1,5 +1,5 @@
 {
   "OperationId": null,
-  "StackId": "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack-update/abd9b7c2-c95a-4f09-a2d4-6d099dc9cc86",
+  "StackId": "arn:aws:cloudformation:us-east-1:123456789012:stack/test-stack-update/bdbbc297-54d6-4174-bc8e-a2896e22d90e",
   "ResultMetadata": {}
 }
