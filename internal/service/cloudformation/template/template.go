@@ -4,6 +4,7 @@ package template
 import (
 	"fmt"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
 	"unicode/utf8"
@@ -31,15 +32,19 @@ type EvaluationInput struct {
 // Evaluation is the canonical, condition-filtered template representation.
 type Evaluation struct {
 	Parameters map[string]string
+	Conditions map[string]bool
 	Resources  map[string]Resource
 	Outputs    map[string]Output
 }
 
 // Resource is an evaluated resource definition.
 type Resource struct {
-	Type       string
-	Properties map[string]any
-	DependsOn  []string
+	Type                string
+	Properties          map[string]any
+	DependsOn           []string
+	Dependencies        []string
+	DeletionPolicy      string
+	UpdateReplacePolicy string
 }
 
 // Output is an evaluated output definition.
@@ -61,10 +66,12 @@ type parameter struct {
 }
 
 type resource struct {
-	typeName   string
-	properties map[string]any
-	condition  string
-	dependsOn  []string
+	typeName            string
+	properties          map[string]any
+	condition           string
+	dependsOn           []string
+	deletionPolicy      string
+	updateReplacePolicy string
 }
 
 type output struct {
@@ -730,7 +737,7 @@ func parameterScalar(value any) (string, bool) {
 	}
 }
 
-//nolint:nlreturn,wsl // Resource definitions are validated as a single restricted shape.
+//nolint:cyclop,gocognit,nlreturn,wsl // Resource definitions are validated as a single restricted shape.
 func parseResources(value any) (map[string]resource, error) {
 	definitions, ok := value.(map[string]any)
 	if !ok {
@@ -761,6 +768,16 @@ func parseResources(value any) (map[string]resource, error) {
 				resource.dependsOn, ok = stringList(value)
 				if !ok {
 					return nil, fmt.Errorf("resource %q DependsOn must be a string or sequence", name)
+				}
+			case "DeletionPolicy":
+				resource.deletionPolicy, ok = value.(string)
+				if !ok {
+					return nil, fmt.Errorf("resource %q DeletionPolicy must be a string", name)
+				}
+			case "UpdateReplacePolicy":
+				resource.updateReplacePolicy, ok = value.(string)
+				if !ok {
+					return nil, fmt.Errorf("resource %q UpdateReplacePolicy must be a string", name)
 				}
 			default:
 				return nil, fmt.Errorf("resource %q has unsupported field %q", name, key)
@@ -830,9 +847,128 @@ func isExportName(value any) bool {
 }
 
 // Evaluate resolves parameter values, conditions, and supported intrinsic functions.
-//
-//nolint:cyclop,funlen,gocognit,nlreturn,wsl // Evaluation order is kept together to make condition filtering explicit.
 func (t *Template) Evaluate(input EvaluationInput) (*Evaluation, error) {
+	return t.EvaluateResources(input, nil)
+}
+
+// ResolveParameters applies defaults and constraints without evaluating
+// resource properties or outputs.
+func (t *Template) ResolveParameters(input EvaluationInput) (map[string]string, error) {
+	evaluation, err := t.EvaluateResources(input, []string{})
+	if err != nil {
+		return nil, err
+	}
+
+	return evaluation.Parameters, nil
+}
+
+// ImportedExportNames returns the evaluated export names referenced by
+// Fn::ImportValue expressions in resource properties and outputs.
+//
+//nolint:funlen,gocognit,cyclop,nlreturn,wsl // Intrinsic discovery traverses one template value tree.
+func (t *Template) ImportedExportNames(input EvaluationInput) ([]string, error) {
+	parameters, err := t.ResolveParameters(input)
+	if err != nil {
+		return nil, err
+	}
+	evaluator := &evaluator{template: t, input: input, parameters: parameters, conditions: map[string]bool{}, evaluating: map[string]bool{}, activeResources: map[string]bool{}}
+	for name, definition := range t.resources {
+		active := true
+		if definition.condition != "" {
+			active, err = evaluator.condition(definition.condition)
+			if err != nil {
+				return nil, err
+			}
+		}
+		evaluator.activeResources[name] = active
+	}
+	seen := make(map[string]struct{})
+	var visit func(any) error
+	visit = func(value any) error {
+		switch value := value.(type) {
+		case map[string]any:
+			if argument, ok := value[intrinsicIf]; ok {
+				arguments, ok := argument.([]any)
+				if !ok || len(arguments) != 3 {
+					return fmt.Errorf("Fn::If requires three arguments")
+				}
+				conditionName, ok := arguments[0].(string)
+				if !ok {
+					return fmt.Errorf("Fn::If condition must be a string")
+				}
+				condition, err := evaluator.condition(conditionName)
+				if err != nil {
+					return err
+				}
+				selected := arguments[2]
+				if condition {
+					selected = arguments[1]
+				}
+
+				return visit(selected)
+			}
+			if argument, ok := value[intrinsicImportValue]; ok {
+				name, err := evaluator.value(argument)
+				if err != nil {
+					return err
+				}
+				text, ok := name.(string)
+				if !ok {
+					return fmt.Errorf("Fn::ImportValue argument must resolve to a string")
+				}
+				seen[text] = struct{}{}
+			}
+			for _, child := range value {
+				if err := visit(child); err != nil {
+					return err
+				}
+			}
+		case []any:
+			for _, child := range value {
+				if err := visit(child); err != nil {
+					return err
+				}
+			}
+		}
+		return nil
+	}
+	for name, definition := range t.resources {
+		if !evaluator.activeResources[name] {
+			continue
+		}
+		if err := visit(definition.properties); err != nil {
+			return nil, err
+		}
+	}
+	for _, definition := range t.outputs {
+		if definition.condition != "" {
+			active, err := evaluator.condition(definition.condition)
+			if err != nil {
+				return nil, err
+			}
+			if !active {
+				continue
+			}
+		}
+		if err := visit(definition.value); err != nil {
+			return nil, err
+		}
+	}
+	names := make([]string, 0, len(seen))
+	for name := range seen {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names, nil
+}
+
+// EvaluateResources resolves only the requested resource definitions. A nil
+// names slice evaluates every active resource and all outputs. This lets a
+// lifecycle executor resolve resources incrementally as adapters return IDs
+// and attributes.
+//
+//nolint:cyclop,funlen,gocognit,gocyclo,nlreturn,wsl // Evaluation order is kept together to make condition filtering explicit.
+func (t *Template) EvaluateResources(input EvaluationInput, names []string) (*Evaluation, error) {
 	parameters := make(map[string]string, len(t.parameters))
 	for name, definition := range t.parameters {
 		value, ok := input.Parameters[name]
@@ -870,8 +1006,22 @@ func (t *Template) Evaluate(input EvaluationInput) (*Evaluation, error) {
 		}
 		evaluator.activeResources[name] = condition
 	}
-	result := &Evaluation{Parameters: parameters, Resources: map[string]Resource{}, Outputs: map[string]Output{}}
+	conditions := make(map[string]bool, len(evaluator.conditions))
+	for name, value := range evaluator.conditions {
+		conditions[name] = value
+	}
+	selected := make(map[string]struct{}, len(names))
+	for _, name := range names {
+		selected[name] = struct{}{}
+	}
+	evaluateAll := names == nil
+	result := &Evaluation{Parameters: parameters, Conditions: conditions, Resources: map[string]Resource{}, Outputs: map[string]Output{}}
 	for name, definition := range t.resources {
+		if !evaluator.activeResources[name] || !evaluateAll {
+			if _, ok := selected[name]; !ok {
+				continue
+			}
+		}
 		if !evaluator.activeResources[name] {
 			continue
 		}
@@ -897,7 +1047,17 @@ func (t *Template) Evaluate(input EvaluationInput) (*Evaluation, error) {
 		if !ok {
 			return nil, fmt.Errorf("resource %q Properties must resolve to a mapping", name)
 		}
-		result.Resources[name] = Resource{Type: definition.typeName, Properties: resolvedProperties, DependsOn: dependsOn}
+		result.Resources[name] = Resource{
+			Type:                definition.typeName,
+			Properties:          resolvedProperties,
+			DependsOn:           dependsOn,
+			Dependencies:        resourceDependencies(definition.properties, evaluator.activeResources, evaluator.conditions),
+			DeletionPolicy:      definition.deletionPolicy,
+			UpdateReplacePolicy: definition.updateReplacePolicy,
+		}
+	}
+	if !evaluateAll && len(selected) != len(activeResourceNames(evaluator.activeResources)) {
+		return result, nil
 	}
 	for name, definition := range t.outputs {
 		if definition.condition != "" {
@@ -928,6 +1088,132 @@ func (t *Template) Evaluate(input EvaluationInput) (*Evaluation, error) {
 		result.Outputs[name] = output
 	}
 	return result, nil
+}
+
+//nolint:wsl // The helper filters and sorts one deterministic name list.
+func activeResourceNames(active map[string]bool) []string {
+	names := make([]string, 0, len(active))
+	for name, enabled := range active {
+		if enabled {
+			names = append(names, name)
+		}
+	}
+
+	return names
+}
+
+// ResourceNames returns active resource names in deterministic order.
+//
+//nolint:wsl // Resource names are validated, collected, and sorted as one operation.
+func (t *Template) ResourceNames(input EvaluationInput) ([]string, error) {
+	if _, err := t.EvaluateResources(input, []string{}); err != nil {
+		return nil, err
+	}
+	names := make([]string, 0, len(t.resources))
+	for name := range t.resources {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
+	return names, nil
+}
+
+//nolint:gocognit,nestif,nlreturn,wsl // Intrinsic dependency collection traverses one value tree.
+func resourceDependencies(value any, active, conditions map[string]bool) []string {
+	seen := map[string]struct{}{}
+	var visit func(any)
+	visit = func(value any) {
+		switch value := value.(type) {
+		case map[string]any:
+			if len(value) == 1 {
+				if argument, ok := value[intrinsicIf]; ok {
+					if selected, ok := selectedIfBranch(argument, conditions); ok {
+						visit(selected)
+						return
+					}
+				}
+				if name, ok := value[intrinsicRef].(string); ok && active[name] {
+					seen[name] = struct{}{}
+				}
+				if argument, ok := value[intrinsicGetAtt]; ok {
+					if parts, ok := getAttParts(argument); ok && active[parts[0]] {
+						seen[parts[0]] = struct{}{}
+					}
+				}
+				if argument, ok := value[intrinsicSub]; ok {
+					visitSubDependencies(argument, active, conditions, seen)
+				}
+			}
+			for _, child := range value {
+				visit(child)
+			}
+		case []any:
+			for _, child := range value {
+				visit(child)
+			}
+		}
+	}
+	visit(value)
+	result := make([]string, 0, len(seen))
+	for name := range seen {
+		result = append(result, name)
+	}
+	return result
+}
+
+//nolint:wsl // Fn::Sub has two accepted argument shapes.
+func visitSubDependencies(argument any, active, conditions map[string]bool, seen map[string]struct{}) {
+	var source string
+	variables := map[string]any{}
+	switch argument := argument.(type) {
+	case string:
+		source = argument
+	case []any:
+		if len(argument) != 2 {
+			return
+		}
+		source, _ = argument[0].(string)
+		variables, _ = argument[1].(map[string]any)
+		for _, value := range variables {
+			for _, dependency := range resourceDependencies(value, active, conditions) {
+				seen[dependency] = struct{}{}
+			}
+		}
+	}
+	for _, match := range subPattern.FindAllString(source, -1) {
+		name := match[2 : len(match)-1]
+		if strings.HasPrefix(name, "!") {
+			continue
+		}
+		if _, ok := variables[name]; ok {
+			continue
+		}
+		name = strings.SplitN(name, ".", 2)[0]
+		if active[name] {
+			seen[name] = struct{}{}
+		}
+	}
+}
+
+//nolint:wsl // Branch selection keeps argument validation adjacent to the chosen value.
+func selectedIfBranch(argument any, conditions map[string]bool) (any, bool) {
+	arguments, ok := argument.([]any)
+	if !ok || len(arguments) != 3 {
+		return nil, false
+	}
+	conditionName, ok := arguments[0].(string)
+	if !ok {
+		return nil, false
+	}
+	condition, ok := conditions[conditionName]
+	if !ok {
+		return nil, false
+	}
+	if condition {
+		return arguments[1], true
+	}
+
+	return arguments[2], true
 }
 
 type evaluator struct {

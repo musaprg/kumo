@@ -1,3 +1,4 @@
+//nolint:goconst // Template fixtures intentionally repeat intrinsic and logical names.
 package template
 
 import (
@@ -155,6 +156,55 @@ Outputs:
 	}
 }
 
+//nolint:wsl // The fixture covers resource/output conditions and both Fn::If branches.
+func TestImportedExportNamesHonorsConditionsAndSelectedIfBranches(t *testing.T) {
+	t.Parallel()
+	tmpl, err := Parse(`
+Parameters:
+  Enabled:
+    Type: String
+    Default: "false"
+Conditions:
+  IsEnabled: !Equals [!Ref Enabled, "true"]
+Resources:
+  Conditional:
+    Type: Custom::Thing
+    Condition: IsEnabled
+    Properties:
+      Value: !ImportValue InactiveResourceExport
+  Selected:
+    Type: Custom::Thing
+    Properties:
+      Value: !If [IsEnabled, !ImportValue TrueBranchExport, !ImportValue FalseBranchExport]
+Outputs:
+  Conditional:
+    Condition: IsEnabled
+    Value: !ImportValue InactiveOutputExport
+  Selected:
+    Value: !If [IsEnabled, !ImportValue TrueOutputExport, !ImportValue FalseOutputExport]
+`)
+	if err != nil {
+		t.Fatalf("Parse() error = %v", err)
+	}
+	names, err := tmpl.ImportedExportNames(EvaluationInput{})
+	if err != nil {
+		t.Fatalf("ImportedExportNames() error = %v", err)
+	}
+	want := []string{"FalseBranchExport", "FalseOutputExport"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("inactive import names = %v, want %v", names, want)
+	}
+
+	names, err = tmpl.ImportedExportNames(EvaluationInput{Parameters: map[string]string{"Enabled": "true"}})
+	if err != nil {
+		t.Fatalf("ImportedExportNames(enabled) error = %v", err)
+	}
+	want = []string{"InactiveOutputExport", "InactiveResourceExport", "TrueBranchExport", "TrueOutputExport"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("active import names = %v, want %v", names, want)
+	}
+}
+
 //nolint:wsl // Assertions intentionally enumerate each supported intrinsic result.
 func TestEvaluateSupportsIntrinsicFunctionsAndPseudoParameters(t *testing.T) {
 	t.Parallel()
@@ -212,6 +262,45 @@ Outputs:
 	}
 	if got, ok := evaluation.Outputs["Condition"].Value.(bool); !ok || !got {
 		t.Errorf("Condition = %#v, want true", got)
+	}
+}
+
+//nolint:wsl // The test keeps incremental evaluation and its assertions together.
+func TestEvaluateResourcesInDependencyOrderUsesNewAttributesForPropertiesAndOutputs(t *testing.T) {
+	parsed, err := Parse(`
+Resources:
+  Producer:
+    Type: Custom::Producer
+  Consumer:
+    Type: Custom::Consumer
+    Properties:
+      Source: !GetAtt Producer.Arn
+Outputs:
+  Source:
+    Value: !GetAtt Producer.Arn
+`)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	evaluation, err := parsed.EvaluateResources(EvaluationInput{}, []string{"Producer"})
+	if err != nil {
+		t.Fatalf("EvaluateResources(Producer) error = %v", err)
+	}
+	if _, ok := evaluation.Resources["Consumer"]; ok {
+		t.Fatal("EvaluateResources(Producer) evaluated dependent resource")
+	}
+
+	attributes := map[string]map[string]string{"Producer": {"Ref": "producer-id", "Arn": "arn:producer"}}
+	evaluation, err = parsed.EvaluateResources(EvaluationInput{ResourceAttributes: attributes}, []string{"Producer", "Consumer"})
+	if err != nil {
+		t.Fatalf("EvaluateResources(all) error = %v", err)
+	}
+	if got := evaluation.Resources["Consumer"].Properties["Source"]; got != "arn:producer" {
+		t.Fatalf("consumer source = %#v, want arn:producer", got)
+	}
+	if got := evaluation.Outputs["Source"].Value; got != "arn:producer" {
+		t.Fatalf("output source = %#v, want arn:producer", got)
 	}
 }
 
