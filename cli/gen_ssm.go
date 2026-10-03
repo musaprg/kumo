@@ -213,7 +213,7 @@ func newSSMDescribeParametersCmd() *cobra.Command {
 				}
 			}
 
-			if shared {
+			if cmd.Flags().Changed("shared") {
 				input.Shared = aws.Bool(shared)
 			}
 
@@ -268,7 +268,7 @@ func newSSMGetParameterCmd() *cobra.Command {
 				input.Name = aws.String(name)
 			}
 
-			if withDecryption {
+			if cmd.Flags().Changed("with-decryption") {
 				input.WithDecryption = aws.Bool(withDecryption)
 			}
 
@@ -317,7 +317,7 @@ func newSSMGetParametersCmd() *cobra.Command {
 				input.Names = names
 			}
 
-			if withDecryption {
+			if cmd.Flags().Changed("with-decryption") {
 				input.WithDecryption = aws.Bool(withDecryption)
 			}
 
@@ -384,11 +384,11 @@ func newSSMGetParametersByPathCmd() *cobra.Command {
 				}
 			}
 
-			if recursive {
+			if cmd.Flags().Changed("recursive") {
 				input.Recursive = aws.Bool(recursive)
 			}
 
-			if withDecryption {
+			if cmd.Flags().Changed("with-decryption") {
 				input.WithDecryption = aws.Bool(withDecryption)
 			}
 
@@ -523,7 +523,7 @@ func newSSMPutParameterCmd() *cobra.Command {
 				input.KeyId = aws.String(keyId)
 			}
 
-			if overwrite {
+			if cmd.Flags().Changed("overwrite") {
 				input.Overwrite = aws.Bool(overwrite)
 			}
 

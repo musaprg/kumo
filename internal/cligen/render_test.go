@@ -54,6 +54,19 @@ func TestRender_MatchesExistingHandWrittenCommands(t *testing.T) {
 			t.Errorf("gen_kinesis.go missing %q (existing cli/kinesis.go create-stream uses this exact name)", want)
 		}
 	}
+
+	cloudformation, ok := files["cli/gen_cloudformation.go"]
+	if !ok {
+		t.Fatal("expected cli/gen_cloudformation.go to be generated")
+	}
+
+	if !strings.Contains(cloudformation, `"notification-arns"`) {
+		t.Fatal("CloudFormation notification ARN flags are missing the correct spelling")
+	}
+
+	if strings.Contains(cloudformation, `"notification-a-r-ns"`) {
+		t.Fatal("CloudFormation notification ARN flags have incorrect generated spelling")
+	}
 }
 
 // TestGeneratedCLIUpToDate is cli-gen's drift test, the same shape as

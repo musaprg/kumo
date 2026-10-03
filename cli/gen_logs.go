@@ -62,7 +62,7 @@ func newLogsCreateLogGroupCmd() *cobra.Command {
 				input.LogGroupName = aws.String(logGroupName)
 			}
 
-			if deletionProtectionEnabled {
+			if cmd.Flags().Changed("deletion-protection-enabled") {
 				input.DeletionProtectionEnabled = aws.Bool(deletionProtectionEnabled)
 			}
 
@@ -299,7 +299,7 @@ func newLogsDescribeLogGroupsCmd() *cobra.Command {
 				input.AccountIdentifiers = accountIdentifiers
 			}
 
-			if includeLinkedAccounts {
+			if cmd.Flags().Changed("include-linked-accounts") {
 				input.IncludeLinkedAccounts = aws.Bool(includeLinkedAccounts)
 			}
 
@@ -385,7 +385,7 @@ func newLogsDescribeLogStreamsCmd() *cobra.Command {
 
 			input := &cloudwatchlogs.DescribeLogStreamsInput{}
 
-			if descending {
+			if cmd.Flags().Changed("descending") {
 				input.Descending = aws.Bool(descending)
 			}
 
@@ -482,7 +482,7 @@ func newLogsFilterLogEventsCmd() *cobra.Command {
 				input.FilterPattern = aws.String(filterPattern)
 			}
 
-			if interleaved {
+			if cmd.Flags().Changed("interleaved") {
 				input.Interleaved = aws.Bool(interleaved)
 			}
 
@@ -510,7 +510,7 @@ func newLogsFilterLogEventsCmd() *cobra.Command {
 				input.NextToken = aws.String(nextToken)
 			}
 
-			if startFromHead {
+			if cmd.Flags().Changed("start-from-head") {
 				input.StartFromHead = aws.Bool(startFromHead)
 			}
 
@@ -614,7 +614,7 @@ func newLogsGetLogEventsCmd() *cobra.Command {
 				input.NextToken = aws.String(nextToken)
 			}
 
-			if startFromHead {
+			if cmd.Flags().Changed("start-from-head") {
 				input.StartFromHead = aws.Bool(startFromHead)
 			}
 

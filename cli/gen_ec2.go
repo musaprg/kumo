@@ -90,7 +90,7 @@ func newEC2AssociateRouteTableCmd() *cobra.Command {
 				input.RouteTableId = aws.String(routeTableId)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -162,7 +162,7 @@ func newEC2AttachInternetGatewayCmd() *cobra.Command {
 				input.VpcId = aws.String(vpcId)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -221,7 +221,7 @@ func newEC2AuthorizeSecurityGroupEgressCmd() *cobra.Command {
 				input.CidrIp = aws.String(cidrIp)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -327,7 +327,7 @@ func newEC2AuthorizeSecurityGroupIngressCmd() *cobra.Command {
 				input.CidrIp = aws.String(cidrIp)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -430,7 +430,7 @@ func newEC2CreateInternetGatewayCmd() *cobra.Command {
 
 			input := &ec2.CreateInternetGatewayInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -488,7 +488,7 @@ func newEC2CreateKeyPairCmd() *cobra.Command {
 				input.KeyName = aws.String(keyName)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -586,7 +586,7 @@ func newEC2CreateNatGatewayCmd() *cobra.Command {
 				input.ConnectivityType = types.ConnectivityType(connectivityType)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -722,7 +722,7 @@ func newEC2CreateRouteCmd() *cobra.Command {
 				input.DestinationPrefixListId = aws.String(destinationPrefixListId)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -847,7 +847,7 @@ func newEC2CreateRouteTableCmd() *cobra.Command {
 				input.ClientToken = aws.String(clientToken)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -913,7 +913,7 @@ func newEC2CreateSecurityGroupCmd() *cobra.Command {
 				input.GroupName = aws.String(groupName)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1001,7 +1001,7 @@ func newEC2CreateSubnetCmd() *cobra.Command {
 				input.CidrBlock = aws.String(cidrBlock)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1021,7 +1021,7 @@ func newEC2CreateSubnetCmd() *cobra.Command {
 				input.Ipv6IpamPoolId = aws.String(ipv6IpamPoolId)
 			}
 
-			if ipv6Native {
+			if cmd.Flags().Changed("ipv-6-native") {
 				input.Ipv6Native = aws.Bool(ipv6Native)
 			}
 
@@ -1115,7 +1115,7 @@ func newEC2CreateTagsCmd() *cobra.Command {
 				input.Tags = append(input.Tags, val)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1169,7 +1169,7 @@ func newEC2CreateVpcCmd() *cobra.Command {
 
 			input := &ec2.CreateVpcInput{}
 
-			if amazonProvidedIpv6CidrBlock {
+			if cmd.Flags().Changed("amazon-provided-ipv-6-cidr-block") {
 				input.AmazonProvidedIpv6CidrBlock = aws.Bool(amazonProvidedIpv6CidrBlock)
 			}
 
@@ -1177,7 +1177,7 @@ func newEC2CreateVpcCmd() *cobra.Command {
 				input.CidrBlock = aws.String(cidrBlock)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1294,7 +1294,7 @@ func newEC2DeleteInternetGatewayCmd() *cobra.Command {
 				input.InternetGatewayId = aws.String(internetGatewayId)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1336,7 +1336,7 @@ func newEC2DeleteKeyPairCmd() *cobra.Command {
 
 			input := &ec2.DeleteKeyPairInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1392,7 +1392,7 @@ func newEC2DeleteSecurityGroupCmd() *cobra.Command {
 
 			input := &ec2.DeleteSecurityGroupInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1451,7 +1451,7 @@ func newEC2DeleteSubnetCmd() *cobra.Command {
 				input.SubnetId = aws.String(subnetId)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1497,7 +1497,7 @@ func newEC2DeleteTagsCmd() *cobra.Command {
 				input.Resources = resources
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1552,7 +1552,7 @@ func newEC2DeleteVpcCmd() *cobra.Command {
 				input.VpcId = aws.String(vpcId)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1597,7 +1597,7 @@ func newEC2DescribeInstancesCmd() *cobra.Command {
 
 			input := &ec2.DescribeInstancesInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1607,7 +1607,7 @@ func newEC2DescribeInstancesCmd() *cobra.Command {
 				}
 			}
 
-			if includeManagedResources {
+			if cmd.Flags().Changed("include-managed-resources") {
 				input.IncludeManagedResources = aws.Bool(includeManagedResources)
 			}
 
@@ -1675,7 +1675,7 @@ func newEC2DescribeInternetGatewaysCmd() *cobra.Command {
 
 			input := &ec2.DescribeInternetGatewaysInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1747,7 +1747,7 @@ func newEC2DescribeKeyPairsCmd() *cobra.Command {
 
 			input := &ec2.DescribeKeyPairsInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1757,7 +1757,7 @@ func newEC2DescribeKeyPairsCmd() *cobra.Command {
 				}
 			}
 
-			if includePublicKey {
+			if cmd.Flags().Changed("include-public-key") {
 				input.IncludePublicKey = aws.Bool(includePublicKey)
 			}
 
@@ -1819,7 +1819,7 @@ func newEC2DescribeNatGatewaysCmd() *cobra.Command {
 
 			input := &ec2.DescribeNatGatewaysInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1892,7 +1892,7 @@ func newEC2DescribeNetworkInterfacesCmd() *cobra.Command {
 
 			input := &ec2.DescribeNetworkInterfacesInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -1902,7 +1902,7 @@ func newEC2DescribeNetworkInterfacesCmd() *cobra.Command {
 				}
 			}
 
-			if includeManagedResources {
+			if cmd.Flags().Changed("include-managed-resources") {
 				input.IncludeManagedResources = aws.Bool(includeManagedResources)
 			}
 
@@ -1970,7 +1970,7 @@ func newEC2DescribeRouteTablesCmd() *cobra.Command {
 
 			input := &ec2.DescribeRouteTablesInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -2043,7 +2043,7 @@ func newEC2DescribeSecurityGroupsCmd() *cobra.Command {
 
 			input := &ec2.DescribeSecurityGroupsInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -2121,7 +2121,7 @@ func newEC2DescribeSubnetsCmd() *cobra.Command {
 
 			input := &ec2.DescribeSubnetsInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -2192,7 +2192,7 @@ func newEC2DescribeTagsCmd() *cobra.Command {
 
 			input := &ec2.DescribeTagsInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -2264,7 +2264,7 @@ func newEC2DescribeVpcAttributeCmd() *cobra.Command {
 				input.VpcId = aws.String(vpcId)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -2314,7 +2314,7 @@ func newEC2DescribeVpcsCmd() *cobra.Command {
 
 			input := &ec2.DescribeVpcsInput{}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -2392,7 +2392,7 @@ func newEC2DetachInternetGatewayCmd() *cobra.Command {
 				input.VpcId = aws.String(vpcId)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -2658,7 +2658,7 @@ func newEC2RevokeSecurityGroupEgressCmd() *cobra.Command {
 				input.CidrIp = aws.String(cidrIp)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -2762,7 +2762,7 @@ func newEC2RevokeSecurityGroupIngressCmd() *cobra.Command {
 				input.CidrIp = aws.String(cidrIp)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -2949,19 +2949,19 @@ func newEC2RunInstancesCmd() *cobra.Command {
 				input.CreditSpecification = &val
 			}
 
-			if disableApiStop {
+			if cmd.Flags().Changed("disable-api-stop") {
 				input.DisableApiStop = aws.Bool(disableApiStop)
 			}
 
-			if disableApiTermination {
+			if cmd.Flags().Changed("disable-api-termination") {
 				input.DisableApiTermination = aws.Bool(disableApiTermination)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
-			if ebsOptimized {
+			if cmd.Flags().Changed("ebs-optimized") {
 				input.EbsOptimized = aws.Bool(ebsOptimized)
 			}
 
@@ -2981,7 +2981,7 @@ func newEC2RunInstancesCmd() *cobra.Command {
 				input.ElasticInferenceAccelerators = append(input.ElasticInferenceAccelerators, val)
 			}
 
-			if enablePrimaryIpv6 {
+			if cmd.Flags().Changed("enable-primary-ipv-6") {
 				input.EnablePrimaryIpv6 = aws.Bool(enablePrimaryIpv6)
 			}
 
@@ -3295,7 +3295,7 @@ func newEC2StartInstancesCmd() *cobra.Command {
 				input.AdditionalInfo = aws.String(additionalInfo)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -3349,19 +3349,19 @@ func newEC2StopInstancesCmd() *cobra.Command {
 				input.InstanceIds = instanceIds
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
-			if force {
+			if cmd.Flags().Changed("force") {
 				input.Force = aws.Bool(force)
 			}
 
-			if hibernate {
+			if cmd.Flags().Changed("hibernate") {
 				input.Hibernate = aws.Bool(hibernate)
 			}
 
-			if skipOsShutdown {
+			if cmd.Flags().Changed("skip-os-shutdown") {
 				input.SkipOsShutdown = aws.Bool(skipOsShutdown)
 			}
 
@@ -3418,15 +3418,15 @@ func newEC2TerminateInstancesCmd() *cobra.Command {
 				input.InstanceIds = instanceIds
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
-			if force {
+			if cmd.Flags().Changed("force") {
 				input.Force = aws.Bool(force)
 			}
 
-			if skipOsShutdown {
+			if cmd.Flags().Changed("skip-os-shutdown") {
 				input.SkipOsShutdown = aws.Bool(skipOsShutdown)
 			}
 

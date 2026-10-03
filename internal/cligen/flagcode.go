@@ -124,9 +124,11 @@ func intFlag(f *FieldFlag, v, desc, registerFn, wrapFn string) flagView {
 }
 
 func boolFlag(f *FieldFlag, v, desc string) flagView {
-	assign := fmt.Sprintf("if %s {\n\tinput.%s = %s\n}", v, f.FieldName, pointerWrap(f, "aws.Bool", v))
+	var assign string
 	if !f.Pointer {
 		assign = fmt.Sprintf("if %s {\n\tinput.%s = %s\n}", v, f.FieldName, v)
+	} else {
+		assign = fmt.Sprintf("if cmd.Flags().Changed(%q) {\n\tinput.%s = %s\n}", f.FlagName, f.FieldName, pointerWrap(f, "aws.Bool", v))
 	}
 
 	return flagView{

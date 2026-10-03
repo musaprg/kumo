@@ -15,6 +15,7 @@ func TestToKebabCase(t *testing.T) {
 		{"GetQueueUrl", "get-queue-url"},
 		{"CreateQueue", "create-queue"},
 		{"TopicArn", "topic-arn"},
+		{"NotificationARNs", "notification-arns"},
 		{"TableClass", "table-class"},
 		{"KeyId", "key-id"},
 		{"ShardCount", "shard-count"},

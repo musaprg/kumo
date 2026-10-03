@@ -10,7 +10,7 @@ import (
 // Sorted longest-first so matching is greedy and unambiguous.
 var initialisms = []string{
 	"JSON", "HTML", "HTTP", "CIDR",
-	"URL", "ARN", "AWS", "KMS", "SSE", "ACL", "MFA", "API", "TTL", "VPC",
+	"URL", "ARNs", "ARN", "AWS", "KMS", "SSE", "ACL", "MFA", "API", "TTL", "VPC",
 	"ID",
 }
 

@@ -473,7 +473,7 @@ func newECSDeleteServiceCmd() *cobra.Command {
 				input.Cluster = aws.String(cluster)
 			}
 
-			if force {
+			if cmd.Flags().Changed("force") {
 				input.Force = aws.Bool(force)
 			}
 
@@ -746,7 +746,7 @@ func newECSRegisterTaskDefinitionCmd() *cobra.Command {
 				input.Cpu = aws.String(cpu)
 			}
 
-			if enableFaultInjection {
+			if cmd.Flags().Changed("enable-fault-injection") {
 				input.EnableFaultInjection = aws.Bool(enableFaultInjection)
 			}
 
@@ -1208,11 +1208,11 @@ func newECSUpdateServiceCmd() *cobra.Command {
 				input.DesiredCount = aws.Int32(desiredCount)
 			}
 
-			if enableECSManagedTags {
+			if cmd.Flags().Changed("enable-e-c-s-managed-tags") {
 				input.EnableECSManagedTags = aws.Bool(enableECSManagedTags)
 			}
 
-			if enableExecuteCommand {
+			if cmd.Flags().Changed("enable-execute-command") {
 				input.EnableExecuteCommand = aws.Bool(enableExecuteCommand)
 			}
 

@@ -256,7 +256,7 @@ func newFirehoseDeleteDeliveryStreamCmd() *cobra.Command {
 				input.DeliveryStreamName = aws.String(deliveryStreamName)
 			}
 
-			if allowForceDelete {
+			if cmd.Flags().Changed("allow-force-delete") {
 				input.AllowForceDelete = aws.Bool(allowForceDelete)
 			}
 

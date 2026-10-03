@@ -412,7 +412,7 @@ func newCloudWatchListMetricsCmd() *cobra.Command {
 				input.Dimensions = append(input.Dimensions, val)
 			}
 
-			if includeLinkedAccounts {
+			if cmd.Flags().Changed("include-linked-accounts") {
 				input.IncludeLinkedAccounts = aws.Bool(includeLinkedAccounts)
 			}
 
@@ -547,7 +547,7 @@ func newCloudWatchPutMetricDataCmd() *cobra.Command {
 				}
 			}
 
-			if strictEntityValidation {
+			if cmd.Flags().Changed("strict-entity-validation") {
 				input.StrictEntityValidation = aws.Bool(strictEntityValidation)
 			}
 

@@ -137,7 +137,7 @@ func newKinesisDeleteStreamCmd() *cobra.Command {
 
 			input := &kinesis.DeleteStreamInput{}
 
-			if enforceConsumerDeletion {
+			if cmd.Flags().Changed("enforce-consumer-deletion") {
 				input.EnforceConsumerDeletion = aws.Bool(enforceConsumerDeletion)
 			}
 

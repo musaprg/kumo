@@ -20,15 +20,227 @@ func newCloudFormationCmd() *cobra.Command {
 	}
 
 	cmd.AddCommand(
+		newCloudFormationCreateChangeSetCmd(),
 		newCloudFormationCreateStackCmd(),
 		newCloudFormationDeleteStackCmd(),
+		newCloudFormationDescribeChangeSetCmd(),
+		newCloudFormationDescribeStackEventsCmd(),
+		newCloudFormationDescribeStackResourceCmd(),
 		newCloudFormationDescribeStackResourcesCmd(),
 		newCloudFormationDescribeStacksCmd(),
+		newCloudFormationExecuteChangeSetCmd(),
 		newCloudFormationGetTemplateCmd(),
+		newCloudFormationGetTemplateSummaryCmd(),
+		newCloudFormationListExportsCmd(),
 		newCloudFormationListStacksCmd(),
 		newCloudFormationUpdateStackCmd(),
 		newCloudFormationValidateTemplateCmd(),
 	)
+
+	return cmd
+}
+
+func newCloudFormationCreateChangeSetCmd() *cobra.Command {
+	var changeSetName string
+	var stackName string
+	var capabilities []string
+	var changeSetType string
+	var clientToken string
+	var deploymentConfig string
+	var deploymentMode string
+	var description string
+	var disableValidation bool
+	var importExistingResources bool
+	var includeNestedStacks bool
+	var notificationARNs []string
+	var onStackFailure string
+	var parameters []string
+	var resourceTypes []string
+	var resourcesToImport string
+	var roleARN string
+	var rollbackConfiguration string
+	var tags []string
+	var templateBody string
+	var templateURL string
+	var usePreviousTemplate bool
+
+	cmd := &cobra.Command{
+		Use:   "create-change-set",
+		Short: "CreateChangeSet",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := newAWSConfig(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			client := cloudformation.NewFromConfig(cfg, func(o *cloudformation.Options) {
+				o.BaseEndpoint = aws.String(endpointURL)
+			})
+
+			input := &cloudformation.CreateChangeSetInput{}
+
+			if changeSetName != "" {
+				input.ChangeSetName = aws.String(changeSetName)
+			}
+
+			if stackName != "" {
+				input.StackName = aws.String(stackName)
+			}
+
+			for _, s := range capabilities {
+				input.Capabilities = append(input.Capabilities, types.Capability(s))
+			}
+
+			if changeSetType != "" {
+				input.ChangeSetType = types.ChangeSetType(changeSetType)
+			}
+
+			if clientToken != "" {
+				input.ClientToken = aws.String(clientToken)
+			}
+
+			if deploymentConfig != "" {
+				var val types.DeploymentConfig
+				if err := cligen.SetFieldsFromKV(reflect.ValueOf(&val).Elem(), deploymentConfig); err != nil {
+					return fmt.Errorf("create-change-set: parse --deployment-config: %w", err)
+				}
+				input.DeploymentConfig = &val
+			}
+
+			if deploymentMode != "" {
+				input.DeploymentMode = types.DeploymentMode(deploymentMode)
+			}
+
+			if description != "" {
+				input.Description = aws.String(description)
+			}
+
+			if cmd.Flags().Changed("disable-validation") {
+				input.DisableValidation = aws.Bool(disableValidation)
+			}
+
+			if cmd.Flags().Changed("import-existing-resources") {
+				input.ImportExistingResources = aws.Bool(importExistingResources)
+			}
+
+			if cmd.Flags().Changed("include-nested-stacks") {
+				input.IncludeNestedStacks = aws.Bool(includeNestedStacks)
+			}
+
+			if len(notificationARNs) > 0 {
+				input.NotificationARNs = notificationARNs
+			}
+
+			if onStackFailure != "" {
+				input.OnStackFailure = types.OnStackFailure(onStackFailure)
+			}
+
+			for _, raw := range parameters {
+				var val types.Parameter
+				if err := cligen.SetFieldsFromKV(reflect.ValueOf(&val).Elem(), raw); err != nil {
+					return fmt.Errorf("create-change-set: parse --parameters: %w", err)
+				}
+				input.Parameters = append(input.Parameters, val)
+			}
+
+			if len(resourceTypes) > 0 {
+				input.ResourceTypes = resourceTypes
+			}
+
+			if resourcesToImport != "" {
+				if err := json.Unmarshal([]byte(resourcesToImport), &input.ResourcesToImport); err != nil {
+					return fmt.Errorf("create-change-set: parse --resources-to-import: %w", err)
+				}
+			}
+
+			if roleARN != "" {
+				input.RoleARN = aws.String(roleARN)
+			}
+
+			if rollbackConfiguration != "" {
+				if err := json.Unmarshal([]byte(rollbackConfiguration), &input.RollbackConfiguration); err != nil {
+					return fmt.Errorf("create-change-set: parse --rollback-configuration: %w", err)
+				}
+			}
+
+			for _, raw := range tags {
+				var val types.Tag
+				if err := cligen.SetFieldsFromKV(reflect.ValueOf(&val).Elem(), raw); err != nil {
+					return fmt.Errorf("create-change-set: parse --tags: %w", err)
+				}
+				input.Tags = append(input.Tags, val)
+			}
+
+			if templateBody != "" {
+				input.TemplateBody = aws.String(templateBody)
+			}
+
+			if templateURL != "" {
+				input.TemplateURL = aws.String(templateURL)
+			}
+
+			if cmd.Flags().Changed("use-previous-template") {
+				input.UsePreviousTemplate = aws.Bool(usePreviousTemplate)
+			}
+
+			out, err := client.CreateChangeSet(cmd.Context(), input)
+			if err != nil {
+				return fmt.Errorf("create-change-set failed: %w", err)
+			}
+
+			if err := writeOutput(out); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&changeSetName, "change-set-name", "", "Change set name")
+
+	cmd.Flags().StringVar(&stackName, "stack-name", "", "Stack name")
+
+	cmd.Flags().StringArrayVar(&capabilities, "capabilities", nil, "Capabilities")
+
+	cmd.Flags().StringVar(&changeSetType, "change-set-type", "", "Change set type")
+
+	cmd.Flags().StringVar(&clientToken, "client-token", "", "Client token")
+
+	cmd.Flags().StringVar(&deploymentConfig, "deployment-config", "", "Deployment config (key=value,key2=value2)")
+
+	cmd.Flags().StringVar(&deploymentMode, "deployment-mode", "", "Deployment mode")
+
+	cmd.Flags().StringVar(&description, "description", "", "Description")
+
+	cmd.Flags().BoolVar(&disableValidation, "disable-validation", false, "Disable validation")
+
+	cmd.Flags().BoolVar(&importExistingResources, "import-existing-resources", false, "Import existing resources")
+
+	cmd.Flags().BoolVar(&includeNestedStacks, "include-nested-stacks", false, "Include nested stacks")
+
+	cmd.Flags().StringArrayVar(&notificationARNs, "notification-arns", nil, "Notification arns")
+
+	cmd.Flags().StringVar(&onStackFailure, "on-stack-failure", "", "On stack failure")
+
+	cmd.Flags().StringArrayVar(&parameters, "parameters", nil, "Parameters (key=value,key2=value2, repeatable)")
+
+	cmd.Flags().StringArrayVar(&resourceTypes, "resource-types", nil, "Resource types")
+
+	cmd.Flags().StringVar(&resourcesToImport, "resources-to-import", "", "Resources to import (JSON)")
+
+	cmd.Flags().StringVar(&roleARN, "role-arn", "", "Role arn")
+
+	cmd.Flags().StringVar(&rollbackConfiguration, "rollback-configuration", "", "Rollback configuration (JSON)")
+
+	cmd.Flags().StringArrayVar(&tags, "tags", nil, "Tags (key=value,key2=value2, repeatable)")
+
+	cmd.Flags().StringVar(&templateBody, "template-body", "", "Template body")
+
+	cmd.Flags().StringVar(&templateURL, "template-url", "", "Template url")
+
+	cmd.Flags().BoolVar(&usePreviousTemplate, "use-previous-template", false, "Use previous template")
+
+	cmd.Flags().String("region", "", "Region override (ignored)")
 
 	return cmd
 }
@@ -90,15 +302,15 @@ func newCloudFormationCreateStackCmd() *cobra.Command {
 				input.DeploymentConfig = &val
 			}
 
-			if disableRollback {
+			if cmd.Flags().Changed("disable-rollback") {
 				input.DisableRollback = aws.Bool(disableRollback)
 			}
 
-			if disableValidation {
+			if cmd.Flags().Changed("disable-validation") {
 				input.DisableValidation = aws.Bool(disableValidation)
 			}
 
-			if enableTerminationProtection {
+			if cmd.Flags().Changed("enable-termination-protection") {
 				input.EnableTerminationProtection = aws.Bool(enableTerminationProtection)
 			}
 
@@ -122,7 +334,7 @@ func newCloudFormationCreateStackCmd() *cobra.Command {
 				input.ResourceTypes = resourceTypes
 			}
 
-			if retainExceptOnCreate {
+			if cmd.Flags().Changed("retain-except-on-create") {
 				input.RetainExceptOnCreate = aws.Bool(retainExceptOnCreate)
 			}
 
@@ -191,7 +403,7 @@ func newCloudFormationCreateStackCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&enableTerminationProtection, "enable-termination-protection", false, "Enable termination protection")
 
-	cmd.Flags().StringArrayVar(&notificationARNs, "notification-a-r-ns", nil, "Notification a r ns")
+	cmd.Flags().StringArrayVar(&notificationARNs, "notification-arns", nil, "Notification arns")
 
 	cmd.Flags().StringVar(&onFailure, "on-failure", "", "On failure")
 
@@ -293,6 +505,167 @@ func newCloudFormationDeleteStackCmd() *cobra.Command {
 	cmd.Flags().StringArrayVar(&retainResources, "retain-resources", nil, "Retain resources")
 
 	cmd.Flags().StringVar(&roleARN, "role-arn", "", "Role arn")
+
+	cmd.Flags().String("region", "", "Region override (ignored)")
+
+	return cmd
+}
+
+func newCloudFormationDescribeChangeSetCmd() *cobra.Command {
+	var changeSetName string
+	var includePropertyValues bool
+	var nextToken string
+	var stackName string
+
+	cmd := &cobra.Command{
+		Use:   "describe-change-set",
+		Short: "DescribeChangeSet",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := newAWSConfig(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			client := cloudformation.NewFromConfig(cfg, func(o *cloudformation.Options) {
+				o.BaseEndpoint = aws.String(endpointURL)
+			})
+
+			input := &cloudformation.DescribeChangeSetInput{}
+
+			if changeSetName != "" {
+				input.ChangeSetName = aws.String(changeSetName)
+			}
+
+			if cmd.Flags().Changed("include-property-values") {
+				input.IncludePropertyValues = aws.Bool(includePropertyValues)
+			}
+
+			if nextToken != "" {
+				input.NextToken = aws.String(nextToken)
+			}
+
+			if stackName != "" {
+				input.StackName = aws.String(stackName)
+			}
+
+			out, err := client.DescribeChangeSet(cmd.Context(), input)
+			if err != nil {
+				return fmt.Errorf("describe-change-set failed: %w", err)
+			}
+
+			if err := writeOutput(out); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&changeSetName, "change-set-name", "", "Change set name")
+
+	cmd.Flags().BoolVar(&includePropertyValues, "include-property-values", false, "Include property values")
+
+	cmd.Flags().StringVar(&nextToken, "next-token", "", "Next token")
+
+	cmd.Flags().StringVar(&stackName, "stack-name", "", "Stack name")
+
+	cmd.Flags().String("region", "", "Region override (ignored)")
+
+	return cmd
+}
+
+func newCloudFormationDescribeStackEventsCmd() *cobra.Command {
+	var stackName string
+	var nextToken string
+
+	cmd := &cobra.Command{
+		Use:   "describe-stack-events",
+		Short: "DescribeStackEvents",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := newAWSConfig(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			client := cloudformation.NewFromConfig(cfg, func(o *cloudformation.Options) {
+				o.BaseEndpoint = aws.String(endpointURL)
+			})
+
+			input := &cloudformation.DescribeStackEventsInput{}
+
+			if stackName != "" {
+				input.StackName = aws.String(stackName)
+			}
+
+			if nextToken != "" {
+				input.NextToken = aws.String(nextToken)
+			}
+
+			out, err := client.DescribeStackEvents(cmd.Context(), input)
+			if err != nil {
+				return fmt.Errorf("describe-stack-events failed: %w", err)
+			}
+
+			if err := writeOutput(out); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&stackName, "stack-name", "", "Stack name")
+
+	cmd.Flags().StringVar(&nextToken, "next-token", "", "Next token")
+
+	cmd.Flags().String("region", "", "Region override (ignored)")
+
+	return cmd
+}
+
+func newCloudFormationDescribeStackResourceCmd() *cobra.Command {
+	var logicalResourceId string
+	var stackName string
+
+	cmd := &cobra.Command{
+		Use:   "describe-stack-resource",
+		Short: "DescribeStackResource",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := newAWSConfig(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			client := cloudformation.NewFromConfig(cfg, func(o *cloudformation.Options) {
+				o.BaseEndpoint = aws.String(endpointURL)
+			})
+
+			input := &cloudformation.DescribeStackResourceInput{}
+
+			if logicalResourceId != "" {
+				input.LogicalResourceId = aws.String(logicalResourceId)
+			}
+
+			if stackName != "" {
+				input.StackName = aws.String(stackName)
+			}
+
+			out, err := client.DescribeStackResource(cmd.Context(), input)
+			if err != nil {
+				return fmt.Errorf("describe-stack-resource failed: %w", err)
+			}
+
+			if err := writeOutput(out); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&logicalResourceId, "logical-resource-id", "", "Logical resource id")
+
+	cmd.Flags().StringVar(&stackName, "stack-name", "", "Stack name")
 
 	cmd.Flags().String("region", "", "Region override (ignored)")
 
@@ -404,6 +777,72 @@ func newCloudFormationDescribeStacksCmd() *cobra.Command {
 	return cmd
 }
 
+func newCloudFormationExecuteChangeSetCmd() *cobra.Command {
+	var changeSetName string
+	var clientRequestToken string
+	var disableRollback bool
+	var retainExceptOnCreate bool
+	var stackName string
+
+	cmd := &cobra.Command{
+		Use:   "execute-change-set",
+		Short: "ExecuteChangeSet",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := newAWSConfig(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			client := cloudformation.NewFromConfig(cfg, func(o *cloudformation.Options) {
+				o.BaseEndpoint = aws.String(endpointURL)
+			})
+
+			input := &cloudformation.ExecuteChangeSetInput{}
+
+			if changeSetName != "" {
+				input.ChangeSetName = aws.String(changeSetName)
+			}
+
+			if clientRequestToken != "" {
+				input.ClientRequestToken = aws.String(clientRequestToken)
+			}
+
+			if cmd.Flags().Changed("disable-rollback") {
+				input.DisableRollback = aws.Bool(disableRollback)
+			}
+
+			if cmd.Flags().Changed("retain-except-on-create") {
+				input.RetainExceptOnCreate = aws.Bool(retainExceptOnCreate)
+			}
+
+			if stackName != "" {
+				input.StackName = aws.String(stackName)
+			}
+
+			_, err = client.ExecuteChangeSet(cmd.Context(), input)
+			if err != nil {
+				return fmt.Errorf("execute-change-set failed: %w", err)
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&changeSetName, "change-set-name", "", "Change set name")
+
+	cmd.Flags().StringVar(&clientRequestToken, "client-request-token", "", "Client request token")
+
+	cmd.Flags().BoolVar(&disableRollback, "disable-rollback", false, "Disable rollback")
+
+	cmd.Flags().BoolVar(&retainExceptOnCreate, "retain-except-on-create", false, "Retain except on create")
+
+	cmd.Flags().StringVar(&stackName, "stack-name", "", "Stack name")
+
+	cmd.Flags().String("region", "", "Region override (ignored)")
+
+	return cmd
+}
+
 func newCloudFormationGetTemplateCmd() *cobra.Command {
 	var changeSetName string
 	var stackName string
@@ -454,6 +893,129 @@ func newCloudFormationGetTemplateCmd() *cobra.Command {
 	cmd.Flags().StringVar(&stackName, "stack-name", "", "Stack name")
 
 	cmd.Flags().StringVar(&templateStage, "template-stage", "", "Template stage")
+
+	cmd.Flags().String("region", "", "Region override (ignored)")
+
+	return cmd
+}
+
+func newCloudFormationGetTemplateSummaryCmd() *cobra.Command {
+	var callAs string
+	var stackName string
+	var stackSetName string
+	var templateBody string
+	var templateSummaryConfig string
+	var templateURL string
+
+	cmd := &cobra.Command{
+		Use:   "get-template-summary",
+		Short: "GetTemplateSummary",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := newAWSConfig(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			client := cloudformation.NewFromConfig(cfg, func(o *cloudformation.Options) {
+				o.BaseEndpoint = aws.String(endpointURL)
+			})
+
+			input := &cloudformation.GetTemplateSummaryInput{}
+
+			if callAs != "" {
+				input.CallAs = types.CallAs(callAs)
+			}
+
+			if stackName != "" {
+				input.StackName = aws.String(stackName)
+			}
+
+			if stackSetName != "" {
+				input.StackSetName = aws.String(stackSetName)
+			}
+
+			if templateBody != "" {
+				input.TemplateBody = aws.String(templateBody)
+			}
+
+			if templateSummaryConfig != "" {
+				var val types.TemplateSummaryConfig
+				if err := cligen.SetFieldsFromKV(reflect.ValueOf(&val).Elem(), templateSummaryConfig); err != nil {
+					return fmt.Errorf("get-template-summary: parse --template-summary-config: %w", err)
+				}
+				input.TemplateSummaryConfig = &val
+			}
+
+			if templateURL != "" {
+				input.TemplateURL = aws.String(templateURL)
+			}
+
+			out, err := client.GetTemplateSummary(cmd.Context(), input)
+			if err != nil {
+				return fmt.Errorf("get-template-summary failed: %w", err)
+			}
+
+			if err := writeOutput(out); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&callAs, "call-as", "", "Call as")
+
+	cmd.Flags().StringVar(&stackName, "stack-name", "", "Stack name")
+
+	cmd.Flags().StringVar(&stackSetName, "stack-set-name", "", "Stack set name")
+
+	cmd.Flags().StringVar(&templateBody, "template-body", "", "Template body")
+
+	cmd.Flags().StringVar(&templateSummaryConfig, "template-summary-config", "", "Template summary config (key=value,key2=value2)")
+
+	cmd.Flags().StringVar(&templateURL, "template-url", "", "Template url")
+
+	cmd.Flags().String("region", "", "Region override (ignored)")
+
+	return cmd
+}
+
+func newCloudFormationListExportsCmd() *cobra.Command {
+	var nextToken string
+
+	cmd := &cobra.Command{
+		Use:   "list-exports",
+		Short: "ListExports",
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			cfg, err := newAWSConfig(cmd.Context())
+			if err != nil {
+				return err
+			}
+
+			client := cloudformation.NewFromConfig(cfg, func(o *cloudformation.Options) {
+				o.BaseEndpoint = aws.String(endpointURL)
+			})
+
+			input := &cloudformation.ListExportsInput{}
+
+			if nextToken != "" {
+				input.NextToken = aws.String(nextToken)
+			}
+
+			out, err := client.ListExports(cmd.Context(), input)
+			if err != nil {
+				return fmt.Errorf("list-exports failed: %w", err)
+			}
+
+			if err := writeOutput(out); err != nil {
+				return err
+			}
+
+			return nil
+		},
+	}
+
+	cmd.Flags().StringVar(&nextToken, "next-token", "", "Next token")
 
 	cmd.Flags().String("region", "", "Region override (ignored)")
 
@@ -566,11 +1128,11 @@ func newCloudFormationUpdateStackCmd() *cobra.Command {
 				input.DeploymentConfig = &val
 			}
 
-			if disableRollback {
+			if cmd.Flags().Changed("disable-rollback") {
 				input.DisableRollback = aws.Bool(disableRollback)
 			}
 
-			if disableValidation {
+			if cmd.Flags().Changed("disable-validation") {
 				input.DisableValidation = aws.Bool(disableValidation)
 			}
 
@@ -590,7 +1152,7 @@ func newCloudFormationUpdateStackCmd() *cobra.Command {
 				input.ResourceTypes = resourceTypes
 			}
 
-			if retainExceptOnCreate {
+			if cmd.Flags().Changed("retain-except-on-create") {
 				input.RetainExceptOnCreate = aws.Bool(retainExceptOnCreate)
 			}
 
@@ -636,7 +1198,7 @@ func newCloudFormationUpdateStackCmd() *cobra.Command {
 				input.TemplateURL = aws.String(templateURL)
 			}
 
-			if usePreviousTemplate {
+			if cmd.Flags().Changed("use-previous-template") {
 				input.UsePreviousTemplate = aws.Bool(usePreviousTemplate)
 			}
 
@@ -665,7 +1227,7 @@ func newCloudFormationUpdateStackCmd() *cobra.Command {
 
 	cmd.Flags().BoolVar(&disableValidation, "disable-validation", false, "Disable validation")
 
-	cmd.Flags().StringArrayVar(&notificationARNs, "notification-a-r-ns", nil, "Notification a r ns")
+	cmd.Flags().StringArrayVar(&notificationARNs, "notification-arns", nil, "Notification arns")
 
 	cmd.Flags().StringArrayVar(&parameters, "parameters", nil, "Parameters (key=value,key2=value2, repeatable)")
 

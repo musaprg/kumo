@@ -145,7 +145,7 @@ func newKMSCreateKeyCmd() *cobra.Command {
 				input.KeyUsage = types.KeyUsageType(keyUsage)
 			}
 
-			if multiRegion {
+			if cmd.Flags().Changed("multi-region") {
 				input.MultiRegion = aws.Bool(multiRegion)
 			}
 
@@ -242,7 +242,7 @@ func newKMSDecryptCmd() *cobra.Command {
 				input.CiphertextBlob = decoded
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -508,7 +508,7 @@ func newKMSEncryptCmd() *cobra.Command {
 				input.Plaintext = decoded
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 
@@ -584,7 +584,7 @@ func newKMSGenerateDataKeyCmd() *cobra.Command {
 				input.KeyId = aws.String(keyId)
 			}
 
-			if dryRun {
+			if cmd.Flags().Changed("dry-run") {
 				input.DryRun = aws.Bool(dryRun)
 			}
 

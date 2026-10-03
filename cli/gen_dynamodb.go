@@ -205,7 +205,7 @@ func newDynamoDBCreateTableCmd() *cobra.Command {
 				input.BillingMode = types.BillingMode(billingMode)
 			}
 
-			if deletionProtectionEnabled {
+			if cmd.Flags().Changed("deletion-protection-enabled") {
 				input.DeletionProtectionEnabled = aws.Bool(deletionProtectionEnabled)
 			}
 
@@ -677,7 +677,7 @@ func newDynamoDBGetItemCmd() *cobra.Command {
 				input.AttributesToGet = attributesToGet
 			}
 
-			if consistentRead {
+			if cmd.Flags().Changed("consistent-read") {
 				input.ConsistentRead = aws.Bool(consistentRead)
 			}
 
@@ -995,7 +995,7 @@ func newDynamoDBQueryCmd() *cobra.Command {
 				input.ConditionalOperator = types.ConditionalOperator(conditionalOperator)
 			}
 
-			if consistentRead {
+			if cmd.Flags().Changed("consistent-read") {
 				input.ConsistentRead = aws.Bool(consistentRead)
 			}
 
@@ -1057,7 +1057,7 @@ func newDynamoDBQueryCmd() *cobra.Command {
 				input.ReturnConsumedCapacity = types.ReturnConsumedCapacity(returnConsumedCapacity)
 			}
 
-			if scanIndexForward {
+			if cmd.Flags().Changed("scan-index-forward") {
 				input.ScanIndexForward = aws.Bool(scanIndexForward)
 			}
 
@@ -1162,7 +1162,7 @@ func newDynamoDBScanCmd() *cobra.Command {
 				input.ConditionalOperator = types.ConditionalOperator(conditionalOperator)
 			}
 
-			if consistentRead {
+			if cmd.Flags().Changed("consistent-read") {
 				input.ConsistentRead = aws.Bool(consistentRead)
 			}
 
@@ -1674,7 +1674,7 @@ func newDynamoDBUpdateTableCmd() *cobra.Command {
 				input.BillingMode = types.BillingMode(billingMode)
 			}
 
-			if deletionProtectionEnabled {
+			if cmd.Flags().Changed("deletion-protection-enabled") {
 				input.DeletionProtectionEnabled = aws.Bool(deletionProtectionEnabled)
 			}
 

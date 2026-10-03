@@ -220,7 +220,7 @@ func newSecretsManagerDeleteSecretCmd() *cobra.Command {
 				input.SecretId = aws.String(secretId)
 			}
 
-			if forceDeleteWithoutRecovery {
+			if cmd.Flags().Changed("force-delete-without-recovery") {
 				input.ForceDeleteWithoutRecovery = aws.Bool(forceDeleteWithoutRecovery)
 			}
 
@@ -323,23 +323,23 @@ func newSecretsManagerGetRandomPasswordCmd() *cobra.Command {
 				input.ExcludeCharacters = aws.String(excludeCharacters)
 			}
 
-			if excludeLowercase {
+			if cmd.Flags().Changed("exclude-lowercase") {
 				input.ExcludeLowercase = aws.Bool(excludeLowercase)
 			}
 
-			if excludeNumbers {
+			if cmd.Flags().Changed("exclude-numbers") {
 				input.ExcludeNumbers = aws.Bool(excludeNumbers)
 			}
 
-			if excludePunctuation {
+			if cmd.Flags().Changed("exclude-punctuation") {
 				input.ExcludePunctuation = aws.Bool(excludePunctuation)
 			}
 
-			if excludeUppercase {
+			if cmd.Flags().Changed("exclude-uppercase") {
 				input.ExcludeUppercase = aws.Bool(excludeUppercase)
 			}
 
-			if includeSpace {
+			if cmd.Flags().Changed("include-space") {
 				input.IncludeSpace = aws.Bool(includeSpace)
 			}
 
@@ -347,7 +347,7 @@ func newSecretsManagerGetRandomPasswordCmd() *cobra.Command {
 				input.PasswordLength = aws.Int64(passwordLength)
 			}
 
-			if requireEachIncludedType {
+			if cmd.Flags().Changed("require-each-included-type") {
 				input.RequireEachIncludedType = aws.Bool(requireEachIncludedType)
 			}
 
@@ -512,7 +512,7 @@ func newSecretsManagerListSecretsCmd() *cobra.Command {
 				}
 			}
 
-			if includePlannedDeletion {
+			if cmd.Flags().Changed("include-planned-deletion") {
 				input.IncludePlannedDeletion = aws.Bool(includePlannedDeletion)
 			}
 
@@ -590,7 +590,7 @@ func newSecretsManagerPutResourcePolicyCmd() *cobra.Command {
 				input.SecretId = aws.String(secretId)
 			}
 
-			if blockPublicPolicy {
+			if cmd.Flags().Changed("block-public-policy") {
 				input.BlockPublicPolicy = aws.Bool(blockPublicPolicy)
 			}
 

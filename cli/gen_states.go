@@ -566,7 +566,7 @@ func newSFNGetExecutionHistoryCmd() *cobra.Command {
 				input.ExecutionArn = aws.String(executionArn)
 			}
 
-			if includeExecutionData {
+			if cmd.Flags().Changed("include-execution-data") {
 				input.IncludeExecutionData = aws.Bool(includeExecutionData)
 			}
 

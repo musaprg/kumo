@@ -120,7 +120,7 @@ func newAthenaDeleteWorkGroupCmd() *cobra.Command {
 				input.WorkGroup = aws.String(workGroup)
 			}
 
-			if recursiveDeleteOption {
+			if cmd.Flags().Changed("recursive-delete-option") {
 				input.RecursiveDeleteOption = aws.Bool(recursiveDeleteOption)
 			}
 
