@@ -44,6 +44,7 @@ type Storage interface {
 	UpdateRole(ctx context.Context, roleName string, description *string, maxSessionDuration *int) error
 	UpdateAssumeRolePolicy(ctx context.Context, roleName, policyDocument string) error
 	TagRole(ctx context.Context, roleName string, tags []Tag) error
+	UntagRole(ctx context.Context, roleName string, tagKeys []string) error
 
 	CreatePolicy(ctx context.Context, req *CreatePolicyRequest) (*Policy, error)
 	DeletePolicy(ctx context.Context, policyArn string) error
@@ -466,6 +467,33 @@ func (s *MemoryStorage) TagRole(_ context.Context, roleName string, tags []Tag) 
 		byKey[t.Key] = len(role.Tags) - 1
 	}
 
+	s.saveLocked()
+
+	return nil
+}
+
+// UntagRole removes the selected tags from a role.
+//
+//nolint:wsl // Tag removal keeps the storage mutation steps explicit.
+func (s *MemoryStorage) UntagRole(_ context.Context, roleName string, tagKeys []string) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	role, exists := s.Roles[roleName]
+	if !exists {
+		return &Error{Code: errNoSuchEntity, Message: fmt.Sprintf("The role with name %s cannot be found.", roleName)}
+	}
+	remove := make(map[string]struct{}, len(tagKeys))
+	for _, key := range tagKeys {
+		remove[key] = struct{}{}
+	}
+	tags := role.Tags[:0]
+	for _, tag := range role.Tags {
+		if _, drop := remove[tag.Key]; !drop {
+			tags = append(tags, tag)
+		}
+	}
+	role.Tags = tags
 	s.saveLocked()
 
 	return nil

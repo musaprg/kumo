@@ -45,6 +45,11 @@ func (s *Service) Name() string {
 	return "lambda"
 }
 
+// Storage returns the Lambda storage for in-process integrations.
+func (s *Service) Storage() Storage {
+	return s.storage
+}
+
 // BaseURL returns the kumo server base URL the service self-calls against.
 func (s *Service) BaseURL() string { return s.baseURL }
 

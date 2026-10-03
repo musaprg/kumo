@@ -39,6 +39,11 @@ func (s *Service) Name() string {
 	return "dynamodb"
 }
 
+// Storage returns the DynamoDB storage for in-process integrations.
+func (s *Service) Storage() Storage {
+	return s.storage
+}
+
 // RegisterRoutes registers the DynamoDB routes.
 // Note: DynamoDB uses AWS JSON 1.0 protocol via the JSONProtocolService interface,
 // so no direct routes are registered here.

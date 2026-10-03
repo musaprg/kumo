@@ -365,8 +365,8 @@ func (s *MemoryStorage) UpdateFunctionCode(_ context.Context, name string, req *
 		fn.Code.ImageURI = req.ImageURI
 	}
 
-	if len(req.Architectures) > 0 {
-		fn.Architectures = req.Architectures
+	if req.Architectures != nil {
+		fn.Architectures = *req.Architectures
 	}
 
 	fn.LastModified = time.Now().UTC()
@@ -389,36 +389,36 @@ func (s *MemoryStorage) UpdateFunctionConfiguration(_ context.Context, name stri
 		}
 	}
 
-	if req.Description != "" {
-		fn.Description = req.Description
+	if req.Description != nil {
+		fn.Description = *req.Description
 	}
 
-	if req.Handler != "" {
-		fn.Handler = req.Handler
+	if req.Handler != nil {
+		fn.Handler = *req.Handler
 	}
 
-	if req.MemorySize > 0 {
-		fn.MemorySize = req.MemorySize
+	if req.MemorySize != nil {
+		fn.MemorySize = *req.MemorySize
 	}
 
-	if req.Role != "" {
-		fn.Role = req.Role
+	if req.Role != nil {
+		fn.Role = *req.Role
 	}
 
-	if req.Runtime != "" {
-		fn.Runtime = req.Runtime
+	if req.Runtime != nil {
+		fn.Runtime = *req.Runtime
 	}
 
-	if req.Timeout > 0 {
-		fn.Timeout = req.Timeout
+	if req.Timeout != nil {
+		fn.Timeout = *req.Timeout
 	}
 
 	if req.Environment != nil {
-		fn.Environment = req.Environment
+		fn.Environment = *req.Environment
 	}
 
-	if req.InvokeEndpoint != "" {
-		fn.InvokeEndpoint = req.InvokeEndpoint
+	if req.InvokeEndpoint != nil {
+		fn.InvokeEndpoint = *req.InvokeEndpoint
 	}
 
 	fn.LastModified = time.Now().UTC()
@@ -827,24 +827,24 @@ func (s *MemoryStorage) UpdateEventSourceMapping(_ context.Context, uuid string,
 		}
 	}
 
-	if req.FunctionName != "" {
-		fn, fnExists := s.Functions[req.FunctionName]
+	if req.FunctionName != nil {
+		fn, fnExists := s.Functions[*req.FunctionName]
 		if !fnExists {
 			return nil, &FunctionError{
 				Type:    ErrResourceNotFound,
-				Message: fmt.Sprintf("Function not found: %s", req.FunctionName),
+				Message: fmt.Sprintf("Function not found: %s", *req.FunctionName),
 			}
 		}
 
 		mapping.FunctionArn = fn.FunctionArn
 	}
 
-	if req.BatchSize > 0 {
-		mapping.BatchSize = req.BatchSize
+	if req.BatchSize != nil {
+		mapping.BatchSize = *req.BatchSize
 	}
 
-	if req.MaximumBatchingWindowInSeconds > 0 {
-		mapping.MaximumBatchingWindowInSeconds = req.MaximumBatchingWindowInSeconds
+	if req.MaximumBatchingWindowInSeconds != nil {
+		mapping.MaximumBatchingWindowInSeconds = *req.MaximumBatchingWindowInSeconds
 	}
 
 	if req.Enabled != nil {

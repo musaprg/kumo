@@ -166,25 +166,25 @@ type InvokeResponse struct {
 
 // UpdateFunctionCodeRequest is the request for UpdateFunctionCode.
 type UpdateFunctionCodeRequest struct {
-	ZipFile         []byte   `json:"ZipFile,omitempty"`
-	S3Bucket        string   `json:"S3Bucket,omitempty"`
-	S3Key           string   `json:"S3Key,omitempty"`
-	S3ObjectVersion string   `json:"S3ObjectVersion,omitempty"`
-	ImageURI        string   `json:"ImageURI,omitempty"`
-	Publish         bool     `json:"Publish,omitempty"`
-	Architectures   []string `json:"Architectures,omitempty"`
+	ZipFile         []byte    `json:"ZipFile,omitempty"`
+	S3Bucket        string    `json:"S3Bucket,omitempty"`
+	S3Key           string    `json:"S3Key,omitempty"`
+	S3ObjectVersion string    `json:"S3ObjectVersion,omitempty"`
+	ImageURI        string    `json:"ImageURI,omitempty"`
+	Publish         bool      `json:"Publish,omitempty"`
+	Architectures   *[]string `json:"Architectures,omitempty"`
 }
 
 // UpdateFunctionConfigurationRequest is the request for UpdateFunctionConfiguration.
 type UpdateFunctionConfigurationRequest struct {
-	Description    string       `json:"Description,omitempty"`
-	Handler        string       `json:"Handler,omitempty"`
-	MemorySize     int          `json:"MemorySize,omitempty"`
-	Role           string       `json:"Role,omitempty"`
-	Runtime        string       `json:"Runtime,omitempty"`
-	Timeout        int          `json:"Timeout,omitempty"`
-	Environment    *Environment `json:"Environment,omitempty"`
-	InvokeEndpoint string       `json:"InvokeEndpoint,omitempty"` // kumo extension
+	Description    *string       `json:"Description,omitempty"`
+	Handler        *string       `json:"Handler,omitempty"`
+	MemorySize     *int          `json:"MemorySize,omitempty"`
+	Role           *string       `json:"Role,omitempty"`
+	Runtime        *string       `json:"Runtime,omitempty"`
+	Timeout        *int          `json:"Timeout,omitempty"`
+	Environment    **Environment `json:"Environment,omitempty"`
+	InvokeEndpoint *string       `json:"InvokeEndpoint,omitempty"` // kumo extension
 }
 
 // FunctionError represents a Lambda error.
@@ -231,10 +231,10 @@ type CreateEventSourceMappingRequest struct {
 
 // UpdateEventSourceMappingRequest is the request for UpdateEventSourceMapping.
 type UpdateEventSourceMappingRequest struct {
-	FunctionName                   string `json:"FunctionName,omitempty"`
-	BatchSize                      int    `json:"BatchSize,omitempty"`
-	MaximumBatchingWindowInSeconds int    `json:"MaximumBatchingWindowInSeconds,omitempty"`
-	Enabled                        *bool  `json:"Enabled,omitempty"`
+	FunctionName                   *string `json:"FunctionName,omitempty"`
+	BatchSize                      *int    `json:"BatchSize,omitempty"`
+	MaximumBatchingWindowInSeconds *int    `json:"MaximumBatchingWindowInSeconds,omitempty"`
+	Enabled                        *bool   `json:"Enabled,omitempty"`
 }
 
 // ListEventSourceMappingsResponse is the response for ListEventSourceMappings.
