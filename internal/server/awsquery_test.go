@@ -10,6 +10,13 @@ import (
 	"testing"
 )
 
+const (
+	queryActionField      = "Action"
+	queryStackNameField   = "StackName"
+	queryEnvironmentValue = "Environment"
+	queryProductionValue  = "prod"
+)
+
 func TestParseServiceFromUserAgent(t *testing.T) {
 	t.Parallel()
 
@@ -255,6 +262,29 @@ func TestQueryDispatcher_UnknownAction(t *testing.T) {
 	}
 }
 
+//nolint:wsl // The test keeps request setup and XML assertions together.
+func TestQueryDispatcherCloudFormationPreDispatchErrorsUseXML(t *testing.T) {
+	t.Parallel()
+
+	d := NewQueryProtocolDispatcher()
+	d.RegisterAction("CreateStack", "CloudFormation", "cloudformation", func(w http.ResponseWriter, _ *http.Request) {
+		w.WriteHeader(http.StatusOK)
+	})
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader("Action=UnknownAction&Version=2010-05-15"))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "aws-sdk-go-v2/1.0 api/cloudformation#1.0.0")
+	rec := httptest.NewRecorder()
+
+	d.ServeHTTP(rec, req)
+
+	if rec.Code != http.StatusBadRequest || !strings.Contains(rec.Header().Get("Content-Type"), "text/xml") {
+		t.Fatalf("response status/content-type = %d/%q, want CloudFormation XML error", rec.Code, rec.Header().Get("Content-Type"))
+	}
+	if !strings.Contains(rec.Body.String(), "<ErrorResponse") || !strings.Contains(rec.Body.String(), "<Code>UnknownAction</Code>") {
+		t.Fatalf("response body = %s, want Query XML error", rec.Body.String())
+	}
+}
+
 // formToJSONTests covers the form-to-JSON conversions that
 // QueryProtocolDispatcher relies on before dispatching to a JSON protocol
 // handler.
@@ -276,7 +306,7 @@ var formToJSONTests = []struct {
 	{
 		name: "struct member list (Tags)",
 		form: url.Values{
-			"Action":              {"CreateTopic"},
+			queryActionField:      {"CreateTopic"},
 			"Tags.member.1.Key":   {"env"},
 			"Tags.member.1.Value": {"terraform"},
 			"Tags.member.2.Key":   {"team"},
@@ -319,5 +349,139 @@ func TestFormToJSON(t *testing.T) {
 				t.Errorf("formToJSON(%v) = %v, want %v", tt.form, gotMap, tt.want)
 			}
 		})
+	}
+}
+
+//nolint:wsl // The fixture registers a handler before decoding its request.
+func TestQueryDispatcherCloudFormationDecodesNestedIndexedForms(t *testing.T) {
+	t.Parallel()
+
+	d := NewQueryProtocolDispatcher()
+	var got map[string]any
+	d.RegisterAction("CreateStack", "CloudFormation", "cloudformation", func(_ http.ResponseWriter, r *http.Request) {
+		if err := json.NewDecoder(r.Body).Decode(&got); err != nil {
+			t.Errorf("decode dispatched body: %v", err)
+		}
+	})
+
+	form := url.Values{
+		queryActionField:                                       {"CreateStack"},
+		queryStackNameField:                                    {"query-stack"},
+		"Parameters.member.1.ParameterKey":                     {queryEnvironmentValue},
+		"Parameters.member.1.ParameterValue":                   {queryProductionValue},
+		"Parameters.member.1.UsePreviousValue":                 {"true"},
+		"RollbackConfiguration.MonitoringTimeInMinutes":        {"10"},
+		"RollbackConfiguration.RollbackTriggers.member.1.Arn":  {"arn:aws:cloudwatch:::alarm/a"},
+		"RollbackConfiguration.RollbackTriggers.member.1.Type": {"AWS::CloudWatch::Alarm"},
+	}
+	req := httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/", strings.NewReader(form.Encode()))
+	req.Header.Set("Content-Type", "application/x-www-form-urlencoded")
+	req.Header.Set("User-Agent", "aws-sdk-go-v2/1.36.3 api/cloudformation#1.0.0")
+
+	d.ServeHTTP(httptest.NewRecorder(), req)
+
+	want := map[string]any{
+		queryStackNameField: "query-stack",
+		"Parameters": []any{map[string]any{
+			"ParameterKey":     queryEnvironmentValue,
+			"ParameterValue":   queryProductionValue,
+			"UsePreviousValue": true,
+		}},
+		"RollbackConfiguration": map[string]any{
+			"MonitoringTimeInMinutes": float64(10),
+			"RollbackTriggers": []any{map[string]any{
+				"Arn":  "arn:aws:cloudwatch:::alarm/a",
+				"Type": "AWS::CloudWatch::Alarm",
+			}},
+		},
+	}
+	if !reflect.DeepEqual(got, want) {
+		t.Fatalf("decoded CloudFormation form = %#v, want %#v", got, want)
+	}
+}
+
+//nolint:wsl // The fixture keeps each CloudFormation wire field visible.
+func TestCloudFormationQueryDecoderSupportsDirectIndexedMembers(t *testing.T) {
+	t.Parallel()
+
+	form := url.Values{
+		queryActionField:                {"CreateStack"},
+		queryStackNameField:             {"direct-index-stack"},
+		"Parameters.1.ParameterKey":     {queryEnvironmentValue},
+		"Parameters.1.ParameterValue":   {"123"},
+		"Parameters.1.UsePreviousValue": {"false"},
+		"Capabilities.1":                {"CAPABILITY_IAM"},
+		"NotificationARNs.1":            {"arn:aws:sns:us-east-1:123456789012:topic"},
+		"ResourceTypes.1":               {"AWS::S3::Bucket"},
+		"Tags.1.Key":                    {queryEnvironmentValue},
+		"Tags.1.Value":                  {queryProductionValue},
+	}
+
+	//nolint:tagliatelle // The fixture mirrors CloudFormation's wire casing.
+	var got struct {
+		StackName  string `json:"StackName"`
+		Parameters []struct {
+			ParameterKey     string `json:"ParameterKey"`
+			ParameterValue   string `json:"ParameterValue"`
+			UsePreviousValue bool   `json:"UsePreviousValue"`
+		} `json:"Parameters"`
+		Capabilities     []string `json:"Capabilities"`
+		NotificationARNs []string `json:"NotificationARNs"`
+		ResourceTypes    []string `json:"ResourceTypes"`
+		Tags             []struct {
+			Key   string `json:"Key"`
+			Value string `json:"Value"`
+		} `json:"Tags"`
+	}
+
+	if err := json.Unmarshal(cloudFormationFormToJSON(form), &got); err != nil {
+		t.Fatalf("decode CloudFormation form: %v", err)
+	}
+
+	if got.StackName != "direct-index-stack" || len(got.Parameters) != 1 || got.Parameters[0].ParameterKey != queryEnvironmentValue || got.Parameters[0].ParameterValue != "123" || got.Parameters[0].UsePreviousValue {
+		t.Fatalf("decoded parameters = %#v", got.Parameters)
+	}
+	if !reflect.DeepEqual(got.Capabilities, []string{"CAPABILITY_IAM"}) {
+		t.Fatalf("decoded capabilities = %#v", got.Capabilities)
+	}
+	if !reflect.DeepEqual(got.NotificationARNs, []string{"arn:aws:sns:us-east-1:123456789012:topic"}) {
+		t.Fatalf("decoded notification ARNs = %#v", got.NotificationARNs)
+	}
+	if !reflect.DeepEqual(got.ResourceTypes, []string{"AWS::S3::Bucket"}) {
+		t.Fatalf("decoded resource types = %#v", got.ResourceTypes)
+	}
+	if len(got.Tags) != 1 || got.Tags[0].Key != queryEnvironmentValue || got.Tags[0].Value != queryProductionValue {
+		t.Fatalf("decoded tags = %#v", got.Tags)
+	}
+}
+
+//nolint:tagliatelle,wsl // The fixture mirrors CloudFormation's wire casing.
+func TestCloudFormationQueryDecoderSortsNestedChangeSetParameters(t *testing.T) {
+	t.Parallel()
+
+	form := url.Values{
+		queryActionField:                       {"CreateChangeSet"},
+		queryStackNameField:                    {"query-change-set"},
+		"ChangeSetName":                        {"review"},
+		"Parameters.member.2.ParameterKey":     {"Zed"},
+		"Parameters.member.2.ParameterValue":   {"z"},
+		"Parameters.member.1.ParameterKey":     {"Alpha"},
+		"Parameters.member.1.ParameterValue":   {"a"},
+		"Parameters.member.1.UsePreviousValue": {"false"},
+		"Parameters.member.2.UsePreviousValue": {"true"},
+	}
+
+	var decoded struct {
+		Parameters []struct {
+			ParameterKey     string `json:"ParameterKey"`
+			ParameterValue   string `json:"ParameterValue"`
+			UsePreviousValue bool   `json:"UsePreviousValue"`
+		} `json:"Parameters"`
+	}
+	if err := json.Unmarshal(cloudFormationFormToJSON(form), &decoded); err != nil {
+		t.Fatal(err)
+	}
+	if len(decoded.Parameters) != 2 || decoded.Parameters[0].ParameterKey != "Alpha" || decoded.Parameters[1].ParameterKey != "Zed" || !decoded.Parameters[1].UsePreviousValue {
+		t.Fatalf("decoded change-set parameters = %#v, want indexed order and booleans", decoded.Parameters)
 	}
 }

@@ -3,6 +3,7 @@ package server
 import (
 	"bytes"
 	"encoding/json"
+	"encoding/xml"
 	"fmt"
 	"io"
 	"net/http"
@@ -12,6 +13,8 @@ import (
 
 	"github.com/google/uuid"
 )
+
+const cloudFormationXMLNamespace = "http://cloudformation.amazonaws.com/doc/2010-05-15/"
 
 // QueryServiceHandler handles Query protocol requests for a specific service.
 type QueryServiceHandler func(w http.ResponseWriter, r *http.Request)
@@ -60,15 +63,16 @@ func (d *QueryProtocolDispatcher) RegisterAction(action, servicePrefix, serviceI
 
 // ServeHTTP implements http.Handler and dispatches to the appropriate service.
 func (d *QueryProtocolDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	cloudFormation := parseServiceFromUserAgent(r.Header.Get("User-Agent")) == "cloudformation"
 	if err := r.ParseForm(); err != nil {
-		writeQueryError(w, "InvalidParameterValue", "Failed to parse form data")
+		writeQueryProtocolError(w, cloudFormation, "InvalidParameterValue", "Failed to parse form data")
 
 		return
 	}
 
 	action := r.FormValue("Action")
 	if action == "" {
-		writeQueryError(w, "MissingAction", "Action parameter is required")
+		writeQueryProtocolError(w, cloudFormation, "MissingAction", "Action parameter is required")
 
 		return
 	}
@@ -77,13 +81,13 @@ func (d *QueryProtocolDispatcher) ServeHTTP(w http.ResponseWriter, r *http.Reque
 
 	entry, err := d.resolveHandler(svcID, action)
 	if err != nil {
-		writeQueryError(w, err.code, err.message)
+		writeQueryProtocolError(w, cloudFormation, err.code, err.message)
 
 		return
 	}
 
 	// Convert form data to JSON and dispatch.
-	jsonBody := formToJSON(r.Form)
+	jsonBody := formToJSONForService(r.Form, entry.servicePrefix)
 	r.Body = io.NopCloser(bytes.NewReader(jsonBody))
 	r.ContentLength = int64(len(jsonBody))
 	r.Header.Set("Content-Type", "application/x-amz-json-1.0")
@@ -248,6 +252,178 @@ func formToJSON(form map[string][]string) []byte {
 	jsonBytes, _ := json.Marshal(result)
 
 	return jsonBytes
+}
+
+// formToJSONForService applies protocol-specific Query decoding only where the
+// AWS service requires nested indexed structures that the shared decoder does
+// not represent. Other Query services retain the existing conversion behavior.
+func formToJSONForService(form map[string][]string, servicePrefix string) []byte {
+	if servicePrefix != "CloudFormation" {
+		return formToJSON(form)
+	}
+
+	return cloudFormationFormToJSON(form)
+}
+
+// cloudFormationFormToJSON decodes CloudFormation's nested Query members, such
+// as Parameters.member.1.ParameterKey and
+// RollbackConfiguration.RollbackTriggers.member.1.Arn.
+//
+//nolint:cyclop,funlen,gocognit,nestif,wsl // Query member decoding keeps each wire shape together.
+func cloudFormationFormToJSON(form map[string][]string) []byte {
+	result := make(map[string]any)
+	memberLists := make(map[string]map[int]map[string]any)
+	memberScalars := make(map[string]map[int]any)
+
+	for key, values := range form {
+		if key == "Action" || key == "Version" || len(values) == 0 {
+			continue
+		}
+
+		parts := strings.Split(key, ".")
+		memberIndex := -1
+		for index := 0; index+1 < len(parts); index++ {
+			if parts[index] != "member" {
+				continue
+			}
+			memberIndex = index
+
+			break
+		}
+		if memberIndex >= 1 && memberIndex+1 < len(parts) {
+			memberNumber, err := strconv.Atoi(parts[memberIndex+1])
+			if err != nil {
+				continue
+			}
+			base := strings.Join(parts[:memberIndex], ".")
+			if len(parts) == memberIndex+2 {
+				if memberScalars[base] == nil {
+					memberScalars[base] = make(map[int]any)
+				}
+				memberScalars[base][memberNumber] = parseCloudFormationValues(values, base)
+
+				continue
+			}
+			if memberLists[base] == nil {
+				memberLists[base] = make(map[int]map[string]any)
+			}
+			if memberLists[base][memberNumber] == nil {
+				memberLists[base][memberNumber] = make(map[string]any)
+			}
+			setNestedQueryValue(memberLists[base][memberNumber], strings.Join(parts[memberIndex+2:], "."), parseCloudFormationValues(values, strings.Join(parts[memberIndex+2:], ".")))
+
+			continue
+		}
+
+		if base, number, field, ok := parseDirectIndexedQueryKey(parts); ok {
+			if field == "" {
+				if memberScalars[base] == nil {
+					memberScalars[base] = make(map[int]any)
+				}
+				memberScalars[base][number] = parseCloudFormationValues(values, base)
+
+				continue
+			}
+			if memberLists[base] == nil {
+				memberLists[base] = make(map[int]map[string]any)
+			}
+			if memberLists[base][number] == nil {
+				memberLists[base][number] = make(map[string]any)
+			}
+			setNestedQueryValue(memberLists[base][number], field, parseCloudFormationValues(values, field))
+
+			continue
+		}
+
+		setNestedQueryValue(result, key, parseCloudFormationValues(values, key))
+	}
+
+	for base, values := range memberScalars {
+		indices := make([]int, 0, len(values))
+		for index := range values {
+			indices = append(indices, index)
+		}
+		sort.Ints(indices)
+		items := make([]any, 0, len(indices))
+		for _, index := range indices {
+			items = append(items, values[index])
+		}
+		setNestedQueryValue(result, base, items)
+	}
+
+	for base, values := range memberLists {
+		indices := make([]int, 0, len(values))
+		for index := range values {
+			indices = append(indices, index)
+		}
+		sort.Ints(indices)
+		items := make([]any, 0, len(indices))
+		for _, index := range indices {
+			items = append(items, values[index])
+		}
+		setNestedQueryValue(result, base, items)
+	}
+
+	jsonBytes, _ := json.Marshal(result)
+
+	return jsonBytes
+}
+
+func parseCloudFormationValues(values []string, field string) any {
+	if len(values) != 1 {
+		result := make([]any, 0, len(values))
+		for _, value := range values {
+			result = append(result, parseCloudFormationValue(value, field))
+		}
+
+		return result
+	}
+
+	return parseCloudFormationValue(values[0], field)
+}
+
+func parseCloudFormationValue(value, field string) any {
+	field = field[strings.LastIndex(field, ".")+1:]
+	switch field {
+	case "UsePreviousValue", "UsePreviousTemplate", "DisableRollback", "DisableValidation", "EnableTerminationProtection", "RetainExceptOnCreate":
+		if parsed, err := strconv.ParseBool(value); err == nil {
+			return parsed
+		}
+	case "MonitoringTimeInMinutes", "TimeoutInMinutes":
+		if parsed, err := strconv.ParseInt(value, 10, 64); err == nil {
+			return parsed
+		}
+	}
+
+	return value
+}
+
+func parseDirectIndexedQueryKey(parts []string) (base string, number int, field string, ok bool) {
+	for index := 1; index < len(parts); index++ {
+		parsed, err := strconv.Atoi(parts[index])
+		if err != nil {
+			continue
+		}
+
+		return strings.Join(parts[:index], "."), parsed, strings.Join(parts[index+1:], "."), true
+	}
+
+	return "", 0, "", false
+}
+
+//nolint:wsl // Nested Query paths are assembled one segment at a time.
+func setNestedQueryValue(result map[string]any, path string, value any) {
+	parts := strings.Split(path, ".")
+	current := result
+	for _, part := range parts[:len(parts)-1] {
+		nested, ok := current[part].(map[string]any)
+		if !ok {
+			nested = make(map[string]any)
+			current[part] = nested
+		}
+		current = nested
+	}
+	current[parts[len(parts)-1]] = value
 }
 
 // parseFormValue converts a form value string to appropriate JSON type.
@@ -514,5 +690,37 @@ func writeQueryError(w http.ResponseWriter, code, message string) {
 	_ = json.NewEncoder(w).Encode(map[string]string{
 		errFieldType:    code,
 		errFieldMessage: message,
+	})
+}
+
+//nolint:wsl // Protocol-specific response headers and XML body form one boundary.
+func writeQueryProtocolError(w http.ResponseWriter, cloudFormation bool, code, message string) {
+	if !cloudFormation {
+		writeQueryError(w, code, message)
+
+		return
+	}
+	requestID := uuid.New().String()
+	w.Header().Set("Content-Type", "text/xml; charset=utf-8")
+	w.Header().Set("x-amzn-RequestId", requestID)
+	w.WriteHeader(http.StatusBadRequest)
+	_, _ = w.Write([]byte(xml.Header))
+	_ = xml.NewEncoder(w).Encode(struct {
+		XMLName xml.Name `xml:"ErrorResponse"`
+		Xmlns   string   `xml:"xmlns,attr"`
+		Error   struct {
+			Type    string `xml:"Type"`
+			Code    string `xml:"Code"`
+			Message string `xml:"Message"`
+		} `xml:"Error"`
+		RequestID string `xml:"RequestId"`
+	}{
+		Xmlns: cloudFormationXMLNamespace,
+		Error: struct {
+			Type    string `xml:"Type"`
+			Code    string `xml:"Code"`
+			Message string `xml:"Message"`
+		}{Type: "Sender", Code: code, Message: message},
+		RequestID: requestID,
 	})
 }
